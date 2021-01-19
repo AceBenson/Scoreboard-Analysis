@@ -1,0 +1,5 @@
+classes = 2
+train = datasets/tabletennis/cfg/train.txt
+valid = datasets/tabletennis/cfg/valid.txt
+names = ScoreboardDetection/data/tabletennis.names
+backup = datasets/tabletennis/cfg/weights/
