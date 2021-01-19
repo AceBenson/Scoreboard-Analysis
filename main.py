@@ -6,7 +6,7 @@ import cv2
 import json
 import numpy as np
 
-from DigitsDetection import darknet
+from Yolo_darknet import darknet
 from DigitsRecognition.scoreboardOCR import scoreboardOCR
 
 # scoreboardPos = [0, 620, 680, 100]
