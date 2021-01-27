@@ -5,6 +5,7 @@ import time
 import cv2
 import json
 import numpy as np
+from tqdm import tqdm
 
 from Yolo_darknet import darknet
 from DigitsRecognition.scoreboardOCR import scoreboardOCR
@@ -14,11 +15,15 @@ scoreboardPos = [75, 580, 300, 80]
 
 def parser():
     parser = argparse.ArgumentParser(description="Scoreboard Analysis")
-    parser.add_argument("--input", type=str, default=r"../AllVideos/testVideos/video4.mp4",
+    parser.add_argument("--input", type=str, default=r"../AllVideos/testVideos/video3.mp4",
                         help="input video")
 
-    parser.add_argument("-savePredictResult", required=False, action="store_true")
+    parser.add_argument("-printResult", required=False, action="store_true")
+    # set -drawBBox before -saveVideo & -saveImage
     parser.add_argument("-drawBBox", required=False, action="store_true")
+    parser.add_argument("-saveVideo", required=False, action="store_true")
+    parser.add_argument("-saveImage", required=False, action="store_true")
+    parser.add_argument("-savePredictResult", required=False, action="store_true")
 
     # Scoreboard Detection                        
     parser.add_argument("--ScoreboardDetection_weights", default="./ScoreboardDetection/weights/yolov3-tiny-prn-custom_last.weights")
@@ -26,7 +31,7 @@ def parser():
     parser.add_argument("--ScoreboardDetection_data", default="./ScoreboardDetection/data/tabletennis.data")
 
     # Digits Detection
-    parser.add_argument("--DigitsDetection_weights", default="./DigitsDetection/weights/yolo-obj_final.weights")
+    parser.add_argument("--DigitsDetection_weights", default="./DigitsDetection/weights/yolo-digits_final.weights")
     parser.add_argument("--DigitsDetection_cfg", default="./DigitsDetection/cfg/yolo-obj.cfg")
     parser.add_argument("--DigitsDetection_data", default="./DigitsDetection/data/obj.data")
 
@@ -139,42 +144,71 @@ def main():
     frame_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fileName = os.path.basename(args.input)
+    fileName = os.path.splitext(fileName)[0]
+
+    if args.saveVideo:
+        scoreboardSize = (300, 80)
+        fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+        videoWriter = cv2.VideoWriter('OutputVideo/Output_{0}.mp4'.format(fileName), fourcc, int(fps), scoreboardSize)
 
     predictResult_json = {
-        "videoName": args.input, 
+        "videoName": fileName, 
         "videoLength": length,
         "Score": [{"frameIdx": i, "predictResult": []} for i in range(length)]
     }
 
-    index = 0
-    while cap.isOpened():
+    # index = 0
+    # while cap.isOpened():
+    for index in tqdm(range(int(length))):
         ret, frame = cap.read()
         if ret == False:
             break
+        if index % 10 != 0:
+            continue
 
         # Scorebooard Detection
-
-        # scoreboardPos = [75, 580, 300+75, 80+580]
+        # scoreboardPos = [75, 300+75, 580, 80+580]
         scoreboardPos = scoreboardDetection(frame, scoreboardDetection_network, scoreboardDetection_class_names, scoreboardDetection_class_colors, args.thresh)
         if scoreboardPos != None:
             # print(scoreboardPos)
             xmin, xmax, ymin, ymax = scoreboardPos
             frame = frame[ymin:ymax, xmin:xmax]
+            scoreboard = frame.copy()
 
             # Digits Detection
             cropData = digitsDetection(frame, digitsDetection_network, digitsDetection_class_names, digitsDetection_class_colors, args.thresh)
+            if args.drawBBox:
+                for data in cropData:
+                    scoreboard = cv2.rectangle(scoreboard, (data[0], data[1]), (data[2], data[3]), (0, 255, 0), 1)
 
             # Digits Recognition
             predictedTexts = scoreboardOCR(frame, cropData)
             predictResult_json["Score"][index]["predictResult"] = predictedTexts
-            print(predictedTexts)
+            if args.drawBBox:
+                for idx, data in enumerate(cropData):
+                    scoreboard = cv2.putText(scoreboard, predictedTexts[idx], (data[0], data[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0))
+            if args.printResult:
+                print(predictedTexts)
+            if args.saveImage:
+                if not os.path.exists('OutputImage/'+fileName):
+                    os.makedirs('OutputImage/'+fileName)
+                cv2.imwrite('OutputImage/'+fileName+"/"+str(index)+".png", scoreboard)
+            if args.saveVideo:
+                scoreboard = cv2.resize(scoreboard, scoreboardSize)
+                videoWriter.write(scoreboard)
 
-        cv2.imshow('frame', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-        index = index+1
-    with open("PredictResult/predictResult.json", "w") as outfile:
-        json.dump(predictResult_json, outfile, indent=4)
+            if args.drawBBox:
+                cv2.imshow('scoreboard', scoreboard)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        # index = index+1
+    
+    if args.savePredictResult:
+        if not os.path.exists('PredictResult/'+fileName):
+            os.makedirs('PredictResult/'+fileName)
+        with open("PredictResult/"+fileName+"/predictResult.json", "w") as outfile:
+            json.dump(predictResult_json, outfile, indent=4)
 
 if __name__ == "__main__":
     main()

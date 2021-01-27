@@ -56,7 +56,7 @@ def thresholdPreprocess(images):
 def getDigitsROI(image):
     ImgH, ImgW = image.shape
     totalArea = ImgH*ImgW
-    retval, labels, stats, centroids = cv2.connectedComponentsWithStats(image)
+    retval, labels, stats, centroids = cv2.connectedComponentsWithStats(image, connectivity=4)
 
     ROIs = []
     xPos = []
