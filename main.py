@@ -15,15 +15,15 @@ scoreboardPos = [75, 580, 300, 80]
 
 def parser():
     parser = argparse.ArgumentParser(description="Scoreboard Analysis")
-    parser.add_argument("--input", type=str, default=r"../AllVideos/testVideos/video3.mp4",
+    parser.add_argument("--input", type=str, default=r"../Court Athena/AllVideos/testVideos/video3.mp4",
                         help="input video")
 
-    parser.add_argument("-printResult", required=False, action="store_true")
+    parser.add_argument("-printResult", required=False, action="store_true", help="Output predicted text each frame")
     # set -drawBBox before -saveVideo & -saveImage
-    parser.add_argument("-drawBBox", required=False, action="store_true")
-    parser.add_argument("-saveVideo", required=False, action="store_true")
-    parser.add_argument("-saveImage", required=False, action="store_true")
-    parser.add_argument("-savePredictResult", required=False, action="store_true")
+    parser.add_argument("-drawBBox", required=False, action="store_true", help="Draw bounding box on scoreboard and show, set this parameter to true before saveVideo & saveImage")
+    parser.add_argument("-saveVideo", required=False, action="store_true", help="Save Images to 'OutputImage/'")
+    parser.add_argument("-saveImage", required=False, action="store_true", help="Save Images to 'OutputVideo/'")
+    parser.add_argument("-savePredictResult", required=False, action="store_true", help="Save the result to json file")
 
     # Scoreboard Detection                        
     parser.add_argument("--ScoreboardDetection_weights", default="./ScoreboardDetection/weights/yolov3-tiny-prn-custom_last.weights")
@@ -148,6 +148,8 @@ def main():
     fileName = os.path.splitext(fileName)[0]
 
     if args.saveVideo:
+        if not os.path.exists('OutputVideo'):
+            os.makedirs('OutputVideo')
         scoreboardSize = (300, 80)
         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
         videoWriter = cv2.VideoWriter('OutputVideo/Output_{0}.mp4'.format(fileName), fourcc, int(fps), scoreboardSize)
@@ -164,8 +166,6 @@ def main():
         ret, frame = cap.read()
         if ret == False:
             break
-        if index % 10 != 0:
-            continue
 
         # Scorebooard Detection
         # scoreboardPos = [75, 300+75, 580, 80+580]
@@ -178,6 +178,8 @@ def main():
 
             # Digits Detection
             cropData = digitsDetection(frame, digitsDetection_network, digitsDetection_class_names, digitsDetection_class_colors, args.thresh)
+            if len(cropData) != 4:
+                continue
             if args.drawBBox:
                 for data in cropData:
                     scoreboard = cv2.rectangle(scoreboard, (data[0], data[1]), (data[2], data[3]), (0, 255, 0), 1)
